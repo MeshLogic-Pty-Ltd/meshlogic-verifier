@@ -42,20 +42,18 @@ MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEe0D2WWUi4WF8iJMoDO0SKsy5uygJEonf3jjvUHvsZv5A
 
 To keep the "verify without trusting us" chain honest, the pinned key is anchored on a channel **independent of MeshLogic** — the public [Sigstore](https://www.sigstore.dev/) transparency log (Rekor). At release time MeshLogic's CI **keyless-signs** the exact pinned SPKI with a short-lived [Fulcio](https://docs.sigstore.dev/certificate_authority/overview/) certificate bound to its GitHub Actions OIDC identity, and the signing event is logged to public Rekor. You confirm — against Rekor and Fulcio, which **neither you nor MeshLogic control** — that this key was published by MeshLogic's official release workflow, **without querying any MeshLogic system**.
 
-Each release carries three anchor assets:
+Each release carries two anchor assets:
 
 | Asset | What it is |
 |---|---|
 | `meshlogic-verify.spki.b64` | the pinned SPKI (same bytes as each binary's `.pinned-spki.b64`) |
-| `meshlogic-verify.spki.sig` | the keyless signature over it |
-| `meshlogic-verify.spki.pem` | the Fulcio certificate (carries the CI identity) |
+| `meshlogic-verify.spki.bundle.json` | the Sigstore bundle: keyless signature + Fulcio certificate + Rekor inclusion proof, in one file |
 
 **Anchor the key** ([install cosign](https://docs.sigstore.dev/system_config/installation/) first):
 
 ```
 cosign verify-blob \
-  --certificate meshlogic-verify.spki.pem \
-  --signature   meshlogic-verify.spki.sig \
+  --bundle meshlogic-verify.spki.bundle.json \
   --certificate-identity-regexp '^https://github\.com/MeshLogic-Pty-Ltd/MeshLogic-Platform-Prod/\.github/workflows/publish-verifier\.yml@' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
   meshlogic-verify.spki.b64
