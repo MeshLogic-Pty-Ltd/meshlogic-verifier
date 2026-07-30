@@ -38,7 +38,36 @@ Get the binaries from the [**Releases**](https://github.com/MeshLogic-Pty-Ltd/me
 MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEe0D2WWUi4WF8iJMoDO0SKsy5uygJEonf3jjvUHvsZv5A7JIA59PqQDqzCjS4TPy9LXVmj5bGOqIAibDBxZa2ug==
 ```
 
-**Independent key anchor:** to keep the "verify without trusting us" chain honest, this fingerprint is also published on a channel independent of this repository so an attacker would have to compromise both. *(Independent-channel anchor is being provisioned — see the repository issues.)*
+### Independent key anchor (Sigstore Rekor)
+
+To keep the "verify without trusting us" chain honest, the pinned key is anchored on a channel **independent of MeshLogic** — the public [Sigstore](https://www.sigstore.dev/) transparency log (Rekor). At release time MeshLogic's CI **keyless-signs** the exact pinned SPKI with a short-lived [Fulcio](https://docs.sigstore.dev/certificate_authority/overview/) certificate bound to its GitHub Actions OIDC identity, and the signing event is logged to public Rekor. You confirm — against Rekor and Fulcio, which **neither you nor MeshLogic control** — that this key was published by MeshLogic's official release workflow, **without querying any MeshLogic system**.
+
+Each release carries three anchor assets:
+
+| Asset | What it is |
+|---|---|
+| `meshlogic-verify.spki.b64` | the pinned SPKI (same bytes as each binary's `.pinned-spki.b64`) |
+| `meshlogic-verify.spki.sig` | the keyless signature over it |
+| `meshlogic-verify.spki.pem` | the Fulcio certificate (carries the CI identity) |
+
+**Anchor the key** ([install cosign](https://docs.sigstore.dev/system_config/installation/) first):
+
+```
+cosign verify-blob \
+  --certificate meshlogic-verify.spki.pem \
+  --signature   meshlogic-verify.spki.sig \
+  --certificate-identity-regexp '^https://github\.com/MeshLogic-Pty-Ltd/MeshLogic-Platform-Prod/\.github/workflows/publish-verifier\.yml@' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  meshlogic-verify.spki.b64
+```
+
+`Verified OK` means: this SPKI was signed by MeshLogic's official `publish-verifier` workflow (the `--certificate-identity-regexp`), the certificate was issued by GitHub's OIDC-backed Fulcio (`--certificate-oidc-issuer`), and the event is recorded in Rekor. Then confirm the anchored bytes are the key your binary trusts:
+
+```
+diff <(./meshlogic-verify-linux-x64 --print-pinned-spki) meshlogic-verify.spki.b64
+```
+
+No difference → the key the verifier is pinned to is the same key MeshLogic's CI publicly anchored. The trust loop is closed **outside** MeshLogic's account.
 
 ## Verify a proof bundle
 
